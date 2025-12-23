@@ -18,6 +18,9 @@ import sys
 import json
 from pathlib import PurePath
 import platform
+import threading
+
+from presentation_converter import PresentationConverter
 
 # Optional: psutil for system stats (graceful degradation if not installed)
 try:
@@ -45,11 +48,9 @@ CACHE_DIR = Path.home() / 'signage' / 'cache' / 'slides'  # NEW: Cache directory
 CONFIG_FILE = Path.home() / 'signage' / 'config.json'
 PLAYLIST_FILE = Path.home() / 'signage' / 'playlist.json'
 WEB_PLAYER_PID = Path.home() / 'signage' / 'web_player.pid'
-SIGNAGE_PLAYER_PID = Path.home() / 'signage' / 'signage_player.pid'
 COMMANDS_DIR = Path.home() / 'signage' / 'commands'
 COMMANDS_DIR.mkdir(parents=True, exist_ok=True)
 WEB_COMMAND_FILE = COMMANDS_DIR / 'web.json'
-SIGNAGE_COMMAND_FILE = COMMANDS_DIR / 'signage.json'
 LOGS_DIR = Path.home() / 'signage' / 'logs'
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_TMP_DIR = Path.home() / 'signage' / 'uploads_tmp'
@@ -352,13 +353,13 @@ def serve_static(filename):
 @app.route('/control/send_command', methods=['POST'])
 @login_required
 def send_command():
-    target = request.form.get('target')  # 'web' or 'signage'
+    target = request.form.get('target')  # only 'web'
     action = request.form.get('action')  # 'next','prev','pause','play'
-    if target not in ('web', 'signage') or action not in ('next','prev','pause','play'):
+    if target not in ('web',) or action not in ('next','prev','pause','play'):
         flash('Invalid command', 'error')
         return redirect(url_for('dashboard'))
 
-    cmdfile = WEB_COMMAND_FILE if target == 'web' else SIGNAGE_COMMAND_FILE
+    cmdfile = WEB_COMMAND_FILE
     try:
         cmdfile.write_text(json.dumps({'action': action, 'ts': time.time()}))
         flash(f'Sent {action} to {target}', 'success')
@@ -366,6 +367,21 @@ def send_command():
         logger.exception('Failed to write command')
         flash('Failed to send command', 'error')
     return redirect(url_for('dashboard'))
+
+
+def trigger_presentation_conversion_async(presentation_path: Path):
+    """Kick off background conversion of a presentation to cached PNG slides."""
+    def _run():
+        try:
+            conv = PresentationConverter(CACHE_DIR)
+            conv.convert_presentation(presentation_path)
+        except Exception:
+            logger.exception('Background presentation conversion failed')
+    try:
+        threading.Thread(target=_run, daemon=True).start()
+        logger.info(f"Spawned background converter for: {presentation_path.name}")
+    except Exception:
+        logger.exception('Failed to spawn background conversion thread')
 
 
 @app.route('/optimize/video/<filename>', methods=['POST'])
@@ -527,13 +543,9 @@ def upload_chunk(content_type):
             # If presentation, trigger background conversion like in upload_file
             if content_type == 'presentation':
                 try:
-                    python = sys.executable or 'python3'
-                    script = Path(__file__).parent / 'player.py'
-                    subprocess.Popen([python, str(script), '--convert', str(final_path)],
-                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
-                    logger.info(f"Spawned background converter for (chunked): {safe_name}")
+                    trigger_presentation_conversion_async(final_path)
                 except Exception:
-                    logger.exception('Failed to spawn converter process for chunked upload')
+                    logger.exception('Failed to start background conversion for chunked upload')
 
         return jsonify({'ok': True, 'index': index, 'total': total})
     except Exception:
@@ -613,14 +625,12 @@ def dashboard():
     
     # read current config and process status
     web_running = is_process_running(WEB_PLAYER_PID, 'web_player.py')
-    signage_running = is_process_running(SIGNAGE_PLAYER_PID, 'player.py')
 
-    return render_template('dashboard.html', 
-                        videos=videos, 
-                        presentations=presentations, 
+    return render_template('dashboard.html',
+                        videos=videos,
+                        presentations=presentations,
                         username=session.get('username'),
                         web_running=web_running,
-                        signage_running=signage_running,
                         playlist=playlist,
                         playlist_set=playlist_set)
 
@@ -729,25 +739,6 @@ def stop_web_player():
     return redirect(url_for('dashboard'))
 
 
-@app.route('/control/start_signage_player', methods=['POST'])
-@login_required
-def start_signage_player():
-    if is_process_running(SIGNAGE_PLAYER_PID, 'player.py'):
-        flash('Signage player already running', 'error')
-        return redirect(url_for('dashboard'))
-    python = sys.executable or 'python3'
-    script = Path(__file__).parent / 'player.py'
-    ok = start_process([python, str(script)], SIGNAGE_PLAYER_PID)
-    flash('Signage player started' if ok else 'Failed to start signage player', 'success' if ok else 'error')
-    return redirect(url_for('dashboard'))
-
-
-@app.route('/control/stop_signage_player', methods=['POST'])
-@login_required
-def stop_signage_player():
-    ok = stop_process(SIGNAGE_PLAYER_PID)
-    flash('Signage player stopped' if ok else 'Failed to stop signage player', 'success' if ok else 'error')
-    return redirect(url_for('dashboard'))
 
 @app.route('/upload/<content_type>', methods=['POST'])
 @login_required
@@ -802,19 +793,12 @@ def upload_file(content_type):
             file_size = get_file_size(filepath)
             flash(f'✓ Uploaded: {filename} ({file_size}) in {elapsed:.1f}s', 'success')
             logger.info(f"Upload complete: {filename} ({file_size}) in {elapsed:.1f}s")
-            # If this is a presentation, trigger conversion in background so player process
-            # doesn't need to be running. This ensures conversion happens even if the
-            # signage player (HDMI) is stopped.
+            # If presentation, trigger conversion in background
             if content_type == 'presentation':
                 try:
-                    python = sys.executable or 'python3'
-                    script = Path(__file__).parent / 'player.py'
-                    # spawn as detached background process
-                    subprocess.Popen([python, str(script), '--convert', str(filepath)],
-                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
-                    logger.info(f"Spawned background converter for: {filename}")
+                    trigger_presentation_conversion_async(filepath)
                 except Exception:
-                    logger.exception('Failed to spawn converter process')
+                    logger.exception('Failed to start background conversion')
         else:
             flash('Upload failed: File not saved', 'error')
             logger.error(f"File not found after save: {filepath}")

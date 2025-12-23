@@ -404,38 +404,6 @@
                         </div>
                     </div>
 
-                    <!-- Signage (HDMI) Controls -->
-                    <div class="control-block" aria-label="Signage controls">
-                        <div class="section-header"><h2>Signage (HDMI) Controls</h2></div>
-                        <div class="control-row">
-                            <form action="{{ url_for('send_command') }}" method="POST" class="control-form" aria-label="Signage command form">
-                                <input type="hidden" name="target" value="signage">
-                                <button class="icon-btn ghost" aria-label="Previous signage" name="action" value="prev" title="Previous" type="submit">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                        <path d="M11.5 12L20 18V6L11.5 12Z" fill="currentColor" />
-                                        <path d="M4 18V6L9.5 12L4 18Z" fill="currentColor" />
-                                    </svg>
-                                </button>
-                                <button class="icon-btn" aria-label="Play signage" name="action" value="play" title="Play" type="submit">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                        <path d="M8 5v14l11-7L8 5z" />
-                                    </svg>
-                                </button>
-                                <button class="icon-btn pause" aria-label="Pause signage" name="action" value="pause" title="Pause" type="submit">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                        <rect x="6" y="5" width="4" height="14" fill="currentColor" />
-                                        <rect x="14" y="5" width="4" height="14" fill="currentColor" />
-                                    </svg>
-                                </button>
-                                <button class="icon-btn ghost" aria-label="Next signage" name="action" value="next" title="Next" type="submit">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                        <path d="M3 6v12l9-6-9-6z" fill="currentColor" />
-                                        <path d="M12 6v12l9-6-9-6z" fill="currentColor" />
-                                    </svg>
-                                </button>
-                            </form>
-                        </div>
-                    </div>
                 </div>
             </div>
 
