@@ -370,7 +370,10 @@
                 <div class="controls">
                     <!-- Web Player Controls -->
                     <div class="control-block" aria-label="Web player controls">
-                        <div class="section-header"><h2>Web Player Controls</h2></div>
+                        <div class="section-header" style="justify-content:space-between;align-items:center">
+                            <h2>Web Player Controls</h2>
+                            <div class="muted" style="font-size:0.9rem">Clients: <span id="webClientCount">–</span></div>
+                        </div>
                         <div class="control-row">
                             <form action="{{ url_for('send_command') }}" method="POST" class="control-form" aria-label="Web player command form">
                                 <input type="hidden" name="target" value="web">
@@ -1063,6 +1066,22 @@ async function fetchSystemStats(){
     }
 }
 
+// Player status (active client count)
+async function fetchPlayerStatus(){
+    try{
+        const res = await fetch('/api/status');
+        if(!res.ok) throw new Error('status ' + res.status);
+        const j = await res.json();
+        if(j && j.ok){
+            const el = document.getElementById('webClientCount');
+            if(el) el.textContent = j.active_clients ?? '0';
+        }
+    }catch(err){
+        const el = document.getElementById('webClientCount');
+        if(el) el.textContent = '–';
+    }
+}
+
 // Fetch stats on page load and every 5 seconds
 document.addEventListener('DOMContentLoaded', ()=>{
     // Set up stats toggle button
@@ -1073,6 +1092,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
     
     fetchSystemStats();
     setInterval(fetchSystemStats, 5000);
+
+    fetchPlayerStatus();
+    setInterval(fetchPlayerStatus, 5000);
 });
 
 </script>

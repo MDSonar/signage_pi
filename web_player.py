@@ -6,7 +6,7 @@ Digital Signage Web Player
 - Auto-refresh when content changes
 """
 
-from flask import Flask, render_template, send_from_directory, jsonify, make_response
+from flask import Flask, render_template, send_from_directory, jsonify, make_response, request
 from pathlib import Path
 import logging
 import json
@@ -25,6 +25,10 @@ app = Flask(__name__)
 _playlist_cache = {'data': None, 'hash': None, 'timestamp': 0, 'playlist_mtime': 0.0}
 _playlist_cache_lock = Lock()
 PLAYLIST_CACHE_TTL = 5  # seconds
+
+# Client tracking
+_client_ips = set()  # Track unique client IPs
+_client_lock = Lock()
 
 CONFIG_FILE = Path.home() / 'signage' / 'config.json'
 
@@ -233,12 +237,29 @@ def get_current_item_index(playlist, elapsed_time):
 
     return 0, 0
 
+def get_client_ip():
+    """Get client IP, handling proxy headers."""
+    return request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
+
+def track_client():
+    """Track active client by IP."""
+    client_ip = get_client_ip()
+    with _client_lock:
+        _client_ips.add(client_ip)
+
+def get_active_clients():
+    """Return count of unique client IPs seen."""
+    with _client_lock:
+        return len(_client_ips)
+
 @app.route('/')
 def player():
+    track_client()
     return render_template('web_player.html')
 
 @app.route('/api/playlist')
 def api_playlist():
+    track_client()
     playlist, playlist_hash = get_playlist()
     response = make_response(jsonify({
         'playlist': playlist,
@@ -247,6 +268,23 @@ def api_playlist():
     # Cache for 5 seconds on client side
     response.headers['Cache-Control'] = 'public, max-age=5'
     return response
+
+@app.route('/api/status')
+def api_status():
+    """Return current player status: active clients, playlist info."""
+    track_client()
+    try:
+        playlist, playlist_hash = get_playlist()
+        return jsonify({
+            'ok': True,
+            'active_clients': get_active_clients(),
+            'playlist_items': len(playlist),
+            'playlist_hash': playlist_hash,
+            'timestamp': time.time()
+        })
+    except Exception:
+        logger.exception('Failed to get status')
+        return jsonify({'ok': False, 'error': 'server error'}), 500
 
 
 @app.route('/api/playlist-sync')
