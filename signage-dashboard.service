@@ -1,0 +1,35 @@
+# Systemd Service for Dashboard (Gunicorn)
+# Location: /etc/systemd/system/signage-dashboard.service
+# Enable: sudo systemctl enable signage-dashboard
+# Start: sudo systemctl start signage-dashboard
+# Logs: sudo journalctl -u signage-dashboard -f
+
+[Unit]
+Description=Litmus Signage Dashboard
+After=network.target
+Wants=signage-web-player.service
+
+[Service]
+Type=notify
+User=pi
+Group=pi
+WorkingDirectory=/opt/signage-pi
+Environment="PATH=/opt/signage-pi/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="HOME=/home/pi"
+ExecStart=/opt/signage-pi/venv/bin/gunicorn \
+    --workers 2 \
+    --bind 0.0.0.0:5000 \
+    --timeout 300 \
+    --log-level info \
+    --access-logfile /home/pi/.signage/logs/dashboard_access.log \
+    --error-logfile /home/pi/.signage/logs/dashboard_error.log \
+    --pid /home/pi/.signage/dashboard_gunicorn.pid \
+    dashboard:app
+
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Dashboard - Litmus Signage</title>
+
+    <style>
+        :root{
+            --bg: #f4f6fb;
+            --card: #ffffff;
+            --accent: #556ee6;
+            --accent-2: #6b5dd8;
+            --muted: #6b7280;
+            --text: #0f172a;
+            --danger: #dc3545;
+            --danger-dark: #b02a37;
+            --radius: 12px;
+            --gap: 14px;
+            --shadow: 0 8px 24px rgba(16,24,40,0.06);
+            --easing: cubic-bezier(.2,.9,.3,1);
+        }
+
+        /* Base reset */
+        *{box-sizing:border-box;margin:0;padding:0}
+        html,body{height:100%}
+        body{
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system,"Segoe UI", Roboto, "Helvetica Neue", Arial;
+            color:var(--text);
+            background:var(--bg);
+            -webkit-font-smoothing:antialiased;
+            -moz-osx-font-smoothing:grayscale;
+            padding:18px;
+            line-height:1.3;
+            font-size:15px;
+            position: relative;
+        }
+        
+        /* Logo watermark: top-left corner, fixed, responsive */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 18px;
+            left: 18px;
+            width: 140px;
+            height: 140px;
+            background: url('/static/logo/logo.png') no-repeat center;
+            background-size: contain;
+            opacity: 0.12;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Container */
+        .container{max-width:1100px;margin:0 auto;background:transparent;position: relative;z-index: 2;}
+
+        /* App frame */
+        .app{background:linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.95));border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);border:1px solid rgba(15,23,42,0.04)}
+
+        header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:white}
+        header h1{font-size:1rem;font-weight:700;letter-spacing:0.2px}
+        .user-info{font-size:0.85rem;opacity:0.95}
+        .logout-btn{background:rgba(255,255,255,0.12);color:white;padding:8px 12px;border-radius:10px;text-decoration:none;font-weight:700;border:1px solid rgba(255,255,255,0.06)}
+
+        /* Content grid */
+        .content{display:grid;grid-template-columns: 360px 1fr;gap:18px;padding:18px}
+
+        /* Top-level card style */
+        .card{background:var(--card);border-radius:10px;padding:14px;border:1px solid rgba(15,23,42,0.04);transition:transform .18s var(--easing), box-shadow .18s var(--easing)}
+        .card:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(16,24,40,0.08)}
+
+        .section-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+        .section-header h2{font-size:0.98rem;margin:0}
+        .section-sub{color:var(--muted);font-size:0.85rem}
+
+        /* Player controls & groups */
+        .controls { display:flex;flex-direction:column;gap:10px }
+        .control-block{display:flex;flex-direction:column;gap:8px}
+        .control-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+        /* Iconic circular buttons */
+        .icon-btn{width:46px;height:46px;border-radius:999px;border:none;background:linear-gradient(180deg,#111827,#1f2937);color:white;display:inline-flex;align-items:center;justify-content:center;font-size:1.05rem;cursor:pointer;transition:transform .12s var(--easing), box-shadow .12s var(--easing);box-shadow:0 4px 10px rgba(2,6,23,0.08)}
+        .icon-btn:hover{transform:translateY(-3px) scale(1.03)}
+        .icon-btn:active{transform:translateY(-1px) scale(.99)}
+        .icon-btn.ghost{background:transparent;color:var(--accent);border:1px solid rgba(86,99,235,0.12);box-shadow:none}
+        .icon-btn.pause{background:linear-gradient(180deg,#374151,#111827)}
+
+        /* Forms must remain POST; ensure buttons fill and remain accessible */
+        .control-form{display:inline-flex;gap:8px}
+        .control-form button{background:transparent;border:none;padding:0;margin:0}
+
+        /* Video/Presentation lists */
+        .files-list{display:flex;flex-direction:column;gap:10px}
+        .file-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px;border-radius:10px;border:1px solid rgba(15,23,42,0.04);background:linear-gradient(180deg, rgba(255,255,255,0.6), rgba(250,250,250,0.6));transition:transform .12s var(--easing)}
+        .file-item:hover{transform:translateY(-2px)}
+        .file-info{display:flex;flex-direction:column;min-width:0}
+        .file-name{font-weight:700;color:var(--text);word-break:break-word}
+        .file-size{color:var(--muted);font-size:0.86rem}
+
+        .file-actions{display:flex;gap:8px;align-items:center}
+        .delete-btn{background:var(--danger);color:white;border:none;padding:8px 10px;border-radius:8px;font-weight:700;cursor:pointer;transition:background .12s,var(--easing), transform .08s var(--easing)}
+        .delete-btn:hover{background:var(--danger-dark);transform:translateY(-1px)}
+        .delete-form{margin:0}
+
+        /* Badges */
+        .file-badge{font-size:0.75rem;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,0.04);color:var(--muted);font-weight:700}
+        .badge-pptx{background:#fff7ed;color:#7c2d12}
+        .badge-pdf{background:#fff1f2;color:#7f1d1d}
+
+        /* Upload area (styled file input as drop area) */
+        .drop-area{display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border-radius:10px;border:2px dashed rgba(86,99,235,0.08);background:linear-gradient(180deg, rgba(86,99,235,0.03), rgba(86,99,235,0.01));cursor:pointer;color:var(--muted);font-weight:700;text-align:center}
+        .drop-area:hover{background:linear-gradient(180deg, rgba(86,99,235,0.06), rgba(86,99,235,0.02))}
+        .drop-area small{display:block;font-weight:600;color:var(--muted);font-size:0.86rem}
+        input[type="file"]{display:none}
+    .drop-area .selected-name{margin-top:8px;font-weight:600;font-size:0.9rem;color:var(--text);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .drop-area.dragover{border-color:rgba(86,99,235,0.28);background:linear-gradient(180deg, rgba(86,99,235,0.06), rgba(86,99,235,0.03))}
+    .is-hidden{display:none!important}
+    .preview-thumb{max-width:220px;max-height:120px;border-radius:8px;display:block;object-fit:cover}
+    .preview-video{max-width:220px;max-height:120px;border-radius:8px;display:block;object-fit:cover}
+    .preview-icon{width:72px;height:72px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(15,23,42,0.04);color:var(--muted);font-weight:800}
+
+        /* Playlist checkbox styling */
+        .playlist-checkbox{width:18px;height:18px;cursor:pointer;accent-color:var(--accent)}
+
+        /* Flash messages */
+        .flash-wrap{padding:6px 18px}
+        .flash{border-radius:10px;padding:10px 12px;margin-bottom:8px;box-shadow:0 6px 18px rgba(2,6,23,0.04);opacity:0;transform:translateY(-6px);animation:fadeIn .36s forwards}
+        .flash.success{background:#f0fff4;color:#065f46;border:1px solid rgba(6,95,70,0.06)}
+        .flash.error{background:#fff0f0;color:#9b1c1c;border:1px solid rgba(155,28,28,0.06)}
+        @keyframes fadeIn{to{opacity:1;transform:none}}
+
+        /* Progress bar */
+        .progress{height:3px;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:0%;transition:width .28s linear}
+        .progress-wrap{height:3px;background:rgba(15,23,42,0.03);overflow:hidden}
+
+        /* Responsive */
+        @media (max-width: 880px){.content{grid-template-columns:1fr;gap:12px;padding:14px}.control-row{justify-content:space-between}}
+        @media (max-width: 420px){
+            body{padding:12px}
+            body::before {
+                top: 12px;
+                left: 12px;
+                width: 100px;
+                height: 100px;
+            }
+            header{padding:12px}
+            .icon-btn{width:54px;height:54px;font-size:1.15rem}
+            .file-item{padding:12px;flex-direction:column;align-items:flex-start}
+            .file-actions{width:100%;justify-content:space-between;margin-top:6px}
+            .delete-btn{width:46%}
+        }
+
+        /* small utility */
+        .muted{color:var(--muted);font-size:0.88rem}
+
+        /* System stats card styling */
+        #systemStatsCard {
+            position: fixed;
+            bottom: 18px;
+            right: 18px;
+            width: 200px;
+            max-width: calc(100vw - 36px);
+            max-height: calc(100vh - 100px);
+            background: var(--card);
+            border-radius: 8px;
+            padding: 8px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(15,23,42,0.04);
+            z-index: 100;
+            font-size: 0.75rem;
+            display: none;
+            transition: bottom 0.3s ease;
+            overflow-y: auto;
+        }
+
+        #systemStatsCard.visible {
+            display: block;
+        }
+
+        .stat-section {
+            margin-bottom: 6px;
+            padding: 4px 0;
+        }
+
+        .stat-section-title {
+            font-weight: 700;
+            color: var(--text);
+            font-size: 0.75rem;
+            margin-bottom: 2px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .stat-label {
+            color: var(--muted);
+            font-weight: 500;
+            font-size: 0.7rem;
+        }
+
+        .stat-value {
+            font-weight: 700;
+            color: var(--text);
+            font-size: 0.8rem;
+        }
+
+        .stat-bar {
+            width: 100%;
+            height: 3px;
+            background: rgba(15,23,42,0.08);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 1px;
+        }
+
+        .stat-bar-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .stat-bar-fill.warning {
+            background: #f59e0b;
+        }
+
+        .stat-bar-fill.critical {
+            background: #dc2626;
+        }
+
+        .stat-subtext {
+            font-size: 0.65rem;
+            color: var(--muted);
+            margin-top: 1px;
+        }
+
+        .stat-hostname {
+            font-size: 0.65rem;
+            color: var(--muted);
+            text-align: center;
+            margin-top: 4px;
+            padding-top: 4px;
+            border-top: 1px solid rgba(15,23,42,0.06);
+        }
+
+        @media (max-width: 1024px) {
+            #systemStatsCard {
+                width: 180px;
+                right: 12px;
+                font-size: 0.7rem;
+                padding: 6px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            #systemStatsCard {
+                position: fixed;
+                width: calc(100vw - 24px);
+                right: 12px;
+                left: auto;
+                transform: none;
+                top: auto;
+                max-height: calc(100vh - 90px);
+            }
+        }
+
+        @media (max-width: 480px) {
+            #systemStatsCard {
+                width: calc(100vw - 20px);
+                right: 10px;
+                font-size: 0.7rem;
+                padding: 6px;
+            }
+
+            #statsToggleBtn {
+                width: 42px;
+                height: 42px;
+                font-size: 1rem;
+                bottom: 12px;
+                right: 10px;
+            }
+        }
+
+        /* Stats toggle button */
+        #statsToggleBtn {
+            position: fixed;
+            bottom: 18px;
+            right: 18px;
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(180deg, var(--accent), var(--accent-2));
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 20px rgba(86,99,235,0.28);
+            transition: transform 0.2s, box-shadow 0.2s;
+            z-index: 99;
+        }
+
+        #statsToggleBtn:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 8px 24px rgba(86,99,235,0.36);
+        }
+
+        #statsToggleBtn:active {
+            transform: translateY(-1px) scale(0.98);
+        }
+
+        @media (max-width: 768px) {
+            #statsToggleBtn {
+                bottom: 12px;
+                right: 12px;
+            }
+        }
+    </style>
+    </style>
+</head>
+<body>
+<!-- Stats Toggle Button -->
+<button id="statsToggleBtn" title="Toggle System Stats">📊</button>
+
+<!-- System Stats Card (Fixed) -->
+<div id="systemStatsCard">
+    <div id="statsContent" style="display:flex;flex-direction:column;gap:4px">
+        <div class="muted" style="margin-bottom:4px">Loading…</div>
+    </div>
+    <div class="stat-hostname" id="statsHostname"></div>
+</div>
+<div class="container">
+    <div class="app" role="application" aria-label="Litmus Signage Dashboard">
+        <header>
+            <div>
+                <h1>🖥️ Litmus Signage Dashboard</h1>
+                <div class="user-info">Logged in as: {{ username }}</div>
+            </div>
+            <a href="{{ url_for('logout') }}" class="logout-btn" aria-label="Logout">Logout</a>
+        </header>
+
+        <!-- top progress bar -->
+        <div class="progress-wrap" aria-hidden="true">
+            <div id="topProgress" class="progress" style="width:0%"></div>
+        </div>
+
+        <div class="content" role="main">
+            <!-- Left column: Player controls and mode -->
+            <div class="card">
+                <div class="section-header"><h2>⚙️ Player Control</h2></div>
+
+                <!-- Flash messages -->
+                <div class="flash-wrap" aria-live="polite">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="flash {{ category }}">{{ message }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                </div>
+
+                <div class="controls">
+                    <!-- Web Player Controls -->
+                    <div class="control-block" aria-label="Web player controls">
+                        <div class="section-header"><h2>Web Player Controls</h2></div>
+                        <div class="control-row">
+                            <form action="{{ url_for('send_command') }}" method="POST" class="control-form" aria-label="Web player command form">
+                                <input type="hidden" name="target" value="web">
+                                <button class="icon-btn ghost" aria-label="Previous" name="action" value="prev" title="Previous" type="submit">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M11.5 12L20 18V6L11.5 12Z" fill="currentColor" />
+                                        <path d="M4 18V6L9.5 12L4 18Z" fill="currentColor" />
+                                    </svg>
+                                </button>
+                                <button class="icon-btn" aria-label="Play" name="action" value="play" title="Play" type="submit">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M8 5v14l11-7L8 5z" />
+                                    </svg>
+                                </button>
+                                <button class="icon-btn pause" aria-label="Pause" name="action" value="pause" title="Pause" type="submit">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <rect x="6" y="5" width="4" height="14" fill="currentColor" />
+                                        <rect x="14" y="5" width="4" height="14" fill="currentColor" />
+                                    </svg>
+                                </button>
+                                <button class="icon-btn ghost" aria-label="Next" name="action" value="next" title="Next" type="submit">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M3 6v12l9-6-9-6z" fill="currentColor" />
+                                        <path d="M12 6v12l9-6-9-6z" fill="currentColor" />
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Signage (HDMI) Controls -->
+                    <div class="control-block" aria-label="Signage controls">
+                        <div class="section-header"><h2>Signage (HDMI) Controls</h2></div>
+                        <div class="control-row">
+                            <form action="{{ url_for('send_command') }}" method="POST" class="control-form" aria-label="Signage command form">
+                                <input type="hidden" name="target" value="signage">
+                                <button class="icon-btn ghost" aria-label="Previous signage" name="action" value="prev" title="Previous" type="submit">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M11.5 12L20 18V6L11.5 12Z" fill="currentColor" />
+                                        <path d="M4 18V6L9.5 12L4 18Z" fill="currentColor" />
+                                    </svg>
+                                </button>
+                                <button class="icon-btn" aria-label="Play signage" name="action" value="play" title="Play" type="submit">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M8 5v14l11-7L8 5z" />
+                                    </svg>
+                                </button>
+                                <button class="icon-btn pause" aria-label="Pause signage" name="action" value="pause" title="Pause" type="submit">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <rect x="6" y="5" width="4" height="14" fill="currentColor" />
+                                        <rect x="14" y="5" width="4" height="14" fill="currentColor" />
+                                    </svg>
+                                </button>
+                                <button class="icon-btn ghost" aria-label="Next signage" name="action" value="next" title="Next" type="submit">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M3 6v12l9-6-9-6z" fill="currentColor" />
+                                        <path d="M12 6v12l9-6-9-6z" fill="currentColor" />
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right column: Uploads and lists -->
+            <div>
+                <!-- Playlist panel -->
+                <div class="card" aria-labelledby="playlistHeading" style="margin-bottom:12px">
+                    <div class="section-header"><h2 id="playlistHeading">🎵 Playlist (Ordered)</h2></div>
+                    <div style="margin-bottom:8px;color:var(--muted);font-size:0.92rem">Drag to reorder. Set "Repeat" to play an item consecutively.</div>
+                    <div id="playlistPanel">
+                        <ul id="playlistList" style="list-style:none;display:flex;flex-direction:column;gap:8px;padding:0;margin:0">
+                            <li class="file-item muted">Loading playlist…</li>
+                        </ul>
+                        <div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end">
+                            <button id="savePlaylistOrder" class="save-mode-btn">Save Order</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Videos card -->
+                <div class="card" aria-labelledby="videosHeading" style="margin-bottom:12px">
+                    <div class="section-header"><h2 id="videosHeading">📹 Videos</h2></div>
+
+                    <div class="upload-form" style="display:flex;flex-direction:column;gap:10px">
+                        <form action="{{ url_for('upload_file', content_type='video') }}" method="POST" enctype="multipart/form-data" class="uploadForm" aria-label="Upload video form">
+                            <!-- Drop area styled label -->
+                            <label class="drop-area" for="videoFile" tabindex="0" aria-label="Upload a video">
+                                <div class="drop-default">
+                                    <strong>Drag & drop or click to browse</strong>
+                                    <small>MP4, AVI, MOV, MKV, WEBM (max size depends on server)</small>
+                                </div>
+
+                                <div class="preview-area is-hidden">
+                                    <img class="preview-thumb is-hidden" id="videoPreviewImg" alt="preview thumbnail">
+                                    <video class="preview-video is-hidden" id="videoPreviewVid" muted playsinline loop></video>
+                                    <div class="preview-icon is-hidden" id="videoPreviewIcon">VID</div>
+                                </div>
+
+                                <div class="selected-name muted is-hidden" id="videoSelected" aria-live="polite"></div>
+                                <input id="videoFile" type="file" name="file" accept=".mp4,.avi,.mov,.mkv,.webm" required>
+                            </label>
+
+                            <div style="display:flex;gap:10px;justify-content:flex-end">
+                                <button type="submit" class="save-mode-btn" aria-label="Upload video">Upload</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="files-list" style="margin-top:12px">
+                        {% if videos %}
+                            {% for file in videos %}
+                                <div class="file-item" role="listitem">
+                                    <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+                                        <input type="checkbox" class="playlist-checkbox" data-filename="{{ file.name }}" data-content-type="video" {% if file.in_playlist %}checked{% endif %} aria-label="Add {{ file.name }} to playlist">
+                                        <div class="file-info">
+                                            <div class="file-name">{{ file.name }}</div>
+                                            <div class="file-size">{{ file.size }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="file-actions">
+                                        <span class="file-badge">{{ file.name.split('.')[-1]|upper }}</span>
+                                        <form class="delete-form" action="{{ url_for('delete_file', content_type='video', filename=file.name) }}" method="POST" onsubmit="return confirm('Delete {{ file.name }}?')">
+                                            <button type="submit" class="delete-btn" aria-label="Delete {{ file.name }}">Delete</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="file-item" style="justify-content:center"><div class="muted">No videos uploaded yet</div></div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Presentations card -->
+                <div class="card" aria-labelledby="presentationsHeading">
+                    <div class="section-header"><h2 id="presentationsHeading">📊 Presentations</h2></div>
+
+                    <div class="upload-form" style="display:flex;flex-direction:column;gap:10px">
+                        <form action="{{ url_for('upload_file', content_type='presentation') }}" method="POST" enctype="multipart/form-data" class="uploadForm" aria-label="Upload presentation form">
+                            <label class="drop-area" for="presentationFile" tabindex="0" aria-label="Upload a presentation">
+                                <div class="drop-default">
+                                    <strong>Drag & drop or click to browse</strong>
+                                    <small>PPTX, PPT, PDF</small>
+                                </div>
+
+                                <div class="preview-area is-hidden">
+                                    <img class="preview-thumb is-hidden" id="presentationPreviewImg" alt="preview thumbnail">
+                                    <video class="preview-video is-hidden" id="presentationPreviewVid" muted playsinline loop></video>
+                                    <div class="preview-icon is-hidden" id="presentationPreviewIcon">PPT</div>
+                                </div>
+
+                                <div class="selected-name muted is-hidden" id="presentationSelected" aria-live="polite"></div>
+                                <input id="presentationFile" type="file" name="file" accept=".pptx,.ppt,.pdf" required>
+                            </label>
+
+                            <div style="display:flex;gap:10px;justify-content:flex-end">
+                                <button type="submit" class="save-mode-btn" aria-label="Upload presentation">Upload</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="files-list" style="margin-top:12px">
+                        {% if presentations %}
+                            {% for file in presentations %}
+                                <div class="file-item" role="listitem">
+                                    <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+                                        <input type="checkbox" class="playlist-checkbox" data-filename="{{ file.name }}" data-content-type="presentation" {% if file.in_playlist %}checked{% endif %} aria-label="Add {{ file.name }} to playlist">
+                                        <div class="file-info">
+                                            <div class="file-name">
+                                                {{ file.name }}
+                                                {% if file.format %}
+                                                    <span class="file-badge badge-{{ file.format|lower }}">{{ file.format }}</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="file-size">{{ file.size }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="file-actions">
+                                        <span class="file-badge">{{ file.name.split('.')[-1]|upper }}</span>
+                                        <form class="delete-form" action="{{ url_for('delete_file', content_type='presentation', filename=file.name) }}" method="POST" onsubmit="return confirm('Delete {{ file.name }}?')">
+                                            <button type="submit" class="delete-btn" aria-label="Delete {{ file.name }}">Delete</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="file-item" style="justify-content:center"><div class="muted">No presentations uploaded yet</div></div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- small footer spacing -->
+        <div style="height:18px"></div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        // File input drop areas: improve UX (keep functionality) and show selected filename
+        const dropAreas = document.querySelectorAll('.drop-area');
+        function formatBytes(bytes) {
+            if (!bytes && bytes !== 0) return '';
+            const units = ['B','KB','MB','GB','TB'];
+            let i = 0;
+            let val = Number(bytes);
+            while (val >= 1024 && i < units.length - 1) {
+                val /= 1024;
+                i++;
+            }
+            return `${val.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+        }
+
+        function updateSelectedDisplayForInput(input){
+            if (!input) return;
+            const label = input.closest('.drop-area');
+            if (!label) return;
+
+            const defaultMsg = label.querySelector('.drop-default');
+            const display = label.querySelector('.selected-name');
+            const previewArea = label.querySelector('.preview-area');
+            const previewImg = previewArea ? previewArea.querySelector('.preview-thumb') : null;
+            const previewVid = previewArea ? previewArea.querySelector('.preview-video') : null;
+            const previewIcon = previewArea ? previewArea.querySelector('.preview-icon') : null;
+
+            const files = input.files;
+
+            // Reset view
+            if (defaultMsg) defaultMsg.classList.remove('is-hidden');
+            if (display) display.classList.add('is-hidden');
+            if (previewArea) previewArea.classList.add('is-hidden');
+            if (previewImg) { previewImg.classList.add('is-hidden'); previewImg.src = ''; }
+            if (previewVid) { previewVid.classList.add('is-hidden'); previewVid.pause(); previewVid.removeAttribute('src'); previewVid.load && previewVid.load(); }
+            if (previewIcon) previewIcon.classList.add('is-hidden');
+
+            if (!files || files.length === 0){
+                // show default drop message only
+                return;
+            }
+
+            // At least one file selected: hide default and show preview/caption
+            if (defaultMsg) defaultMsg.classList.add('is-hidden');
+            if (previewArea) previewArea.classList.remove('is-hidden');
+
+            if (files.length === 1){
+                const f = files[0];
+                const size = formatBytes(f.size);
+                const ext = (f.name.split('.').pop() || '').toUpperCase();
+
+                // Update caption
+                if (display) {
+                    display.textContent = `${f.name} — ${size} • ${ext}`;
+                    display.title = `${f.name} (${size})`;
+                    display.classList.remove('is-hidden');
+                }
+
+                // Image preview
+                if (f.type && f.type.startsWith('image/') && previewImg) {
+                    const reader = new FileReader();
+                    reader.onload = function(ev) {
+                        previewImg.src = ev.target.result;
+                        previewImg.classList.remove('is-hidden');
+                        if (previewVid) previewVid.classList.add('is-hidden');
+                        if (previewIcon) previewIcon.classList.add('is-hidden');
+                    };
+                    reader.readAsDataURL(f);
+                    return;
+                }
+
+                // Video preview: show small looping muted preview via object URL
+                if (f.type && f.type.startsWith('video/') && previewVid) {
+                    try {
+                        const url = URL.createObjectURL(f);
+                        previewVid.src = url;
+                        previewVid.classList.remove('is-hidden');
+                        previewVid.muted = true;
+                        previewVid.loop = true;
+                        previewVid.play().catch(() => {});
+                        if (previewImg) previewImg.classList.add('is-hidden');
+                        if (previewIcon) previewIcon.classList.add('is-hidden');
+                    } catch (err) {
+                        // fallback to icon
+                        if (previewIcon) previewIcon.classList.remove('is-hidden');
+                    }
+                    return;
+                }
+
+                // For ppt/pdf or unknown types, show generic icon
+                if (previewIcon) {
+                    previewIcon.classList.remove('is-hidden');
+                }
+                if (previewImg) previewImg.classList.add('is-hidden');
+                if (previewVid) previewVid.classList.add('is-hidden');
+
+            } else {
+                // multiple files: show combined caption and generic icon
+                let total = 0;
+                for (let i = 0; i < files.length; i++) total += files[i].size || 0;
+                if (display) {
+                    display.textContent = `${files.length} files selected — ${formatBytes(total)}`;
+                    display.title = `${files.length} files, ${formatBytes(total)}`;
+                    display.classList.remove('is-hidden');
+                }
+                if (previewIcon) previewIcon.classList.remove('is-hidden');
+            }
+        }
+
+        dropAreas.forEach(area => {
+            const input = area.querySelector('input[type="file"]');
+            if (!input) return;
+            // show initial state if any
+            updateSelectedDisplayForInput(input);
+
+            ['dragenter','dragover'].forEach(evName => { area.addEventListener(evName, (e) => { e.preventDefault(); area.classList.add('dragover'); }); });
+            ['dragleave','drop'].forEach(evName => { area.addEventListener(evName, (e) => { e.preventDefault(); area.classList.remove('dragover'); }); });
+            area.addEventListener('drop', (e) => {
+                if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+                    input.files = e.dataTransfer.files;
+                    updateSelectedDisplayForInput(input);
+                }
+            });
+            area.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { input.click(); e.preventDefault(); } });
+
+            // update display when user selects from file picker
+            input.addEventListener('change', () => updateSelectedDisplayForInput(input));
+        });
+
+        // Progress bar animation on file upload forms (UI-only, lightweight)
+        const topProgress = document.getElementById('topProgress');
+        const uploadForms = document.querySelectorAll('form.uploadForm');
+        uploadForms.forEach(form => {
+            form.addEventListener('submit', (e) => {
+                topProgress.style.width = '6%';
+                topProgress.style.transition = 'width 300ms linear';
+                setTimeout(()=> topProgress.style.width = '30%', 120);
+                setTimeout(()=> topProgress.style.width = '55%', 700);
+                setTimeout(()=> topProgress.style.width = '78%', 1400);
+                setTimeout(()=> topProgress.style.width = '98%', 5000);
+            });
+        });
+
+        // On page load, animate progress to 100% then hide
+        window.addEventListener('pageshow', () => {
+            setTimeout(()=> { topProgress.style.width = '100%'; setTimeout(()=> { topProgress.style.width = '0%'; }, 300); }, 80);
+        });
+
+        // Ensure forms with file inputs also show progress when submit via buttons
+        const uploadButtons = document.querySelectorAll('form.uploadForm button[type="submit"]');
+        uploadButtons.forEach(btn => { btn.addEventListener('click', () => { topProgress.style.width = '6%'; setTimeout(()=> topProgress.style.width = '30%', 150); }); });
+    })();
+
+/* Chunked upload support: improves large file uploads by sending in smaller parts with progress. */
+(function(){
+    const CHUNK_SIZE = 4 * 1024 * 1024; // 4 MiB
+
+    async function uploadFileInChunks(file, contentType, progressCb) {
+        const totalBytes = file.size;
+        const totalChunks = Math.ceil(totalBytes / CHUNK_SIZE);
+        let uploadedBytes = 0;
+
+        for (let idx = 0; idx < totalChunks; idx++) {
+            const start = idx * CHUNK_SIZE;
+            const end = Math.min(totalBytes, start + CHUNK_SIZE);
+            const blob = file.slice(start, end);
+
+            const form = new FormData();
+            // include the chunk with the original filename so server can assemble
+            form.append('file', blob, file.name);
+            form.append('filename', file.name);
+            form.append('index', String(idx));
+            form.append('total', String(totalChunks));
+
+            try {
+                const res = await fetch(`/upload_chunk/${contentType}`, { method: 'POST', body: form });
+                if (!res.ok) throw new Error('Upload failed');
+                const j = await res.json();
+                if (!j.ok) throw new Error(j.error || 'Upload error');
+            } catch (err) {
+                console.error('Chunk upload error', err);
+                throw err;
+            }
+
+            uploadedBytes = end;
+            if (typeof progressCb === 'function') progressCb(uploadedBytes, totalBytes);
+        }
+    }
+
+    // Intercept upload forms and perform chunked upload when a file is selected
+    const uploadForms = document.querySelectorAll('form.uploadForm');
+    uploadForms.forEach(form => {
+        form.addEventListener('submit', async (e) => {
+            // If user agent doesn't support fetch or slice, let the form submit normally
+            if (!window.fetch || !Blob.prototype.slice) return;
+
+            const input = form.querySelector('input[type="file"]');
+            if (!input || !input.files || input.files.length === 0) return; // normal
+
+            e.preventDefault();
+            const file = input.files[0];
+            // determine content type from form action path
+            const action = form.getAttribute('action') || '';
+            let contentType = 'video';
+            if (action.indexOf('/upload/presentation') !== -1 || input.accept && input.accept.indexOf('.ppt') !== -1) {
+                contentType = 'presentation';
+            }
+
+            // Start progress UI
+            const topProgress = document.getElementById('topProgress');
+            topProgress.style.transition = 'width 120ms linear';
+            const onProgress = (uploaded, total) => {
+                const pct = Math.floor((uploaded / total) * 100);
+                topProgress.style.width = pct + '%';
+            };
+
+            try {
+                await uploadFileInChunks(file, contentType, onProgress);
+                // finish progress and reload page so server shows the new file
+                topProgress.style.width = '100%';
+                setTimeout(() => { location.reload(); }, 400);
+            } catch (err) {
+                alert('Upload failed. Falling back to normal upload. Please try again.');
+                // reset progress and allow normal submit as fallback
+                topProgress.style.width = '0%';
+                // Optionally submit the form normally as fallback (commented out to avoid double-uploads)
+                // form.submit();
+            }
+        });
+    });
+})();
+
+/* Playlist checkbox toggle via AJAX */
+(function(){
+    const checkboxes = document.querySelectorAll('.playlist-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', async (e) => {
+            const filename = e.target.dataset.filename;
+            const contentType = e.target.dataset.contentType;
+            
+            try {
+                const response = await fetch(`/control/toggle_playlist/${contentType}/${encodeURIComponent(filename)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                if (!data.ok) {
+                    alert('Failed to update playlist: ' + (data.error || 'Unknown error'));
+                    e.target.checked = !e.target.checked; // revert
+                }
+                else {
+                    // refresh the playlist panel to reflect changes
+                    fetchPlaylistOrder().catch(()=>{});
+                }
+            } catch (err) {
+                console.error('Playlist toggle error:', err);
+                alert('Error updating playlist');
+                e.target.checked = !e.target.checked; // revert
+            }
+        });
+    });
+})();
+
+// Playlist panel: fetch, render, reorder & save
+async function fetchPlaylistOrder(){
+    try{
+        const res = await fetch('/api/playlist_order');
+        if (!res.ok) throw new Error('Failed to fetch');
+        const j = await res.json();
+        if (!j.ok) throw new Error(j.error || 'Bad response');
+        renderPlaylistPanel(j.playlist || []);
+        return j.playlist || [];
+    }catch(err){
+        console.error('Playlist fetch failed', err);
+        const ul = document.getElementById('playlistList');
+        if(ul) ul.innerHTML = '<li class="file-item muted">Failed to load playlist</li>';
+        return [];
+    }
+}
+
+function renderPlaylistPanel(items){
+    const ul = document.getElementById('playlistList');
+    if(!ul) return;
+    ul.innerHTML = '';
+    if(!items || items.length === 0){
+        ul.innerHTML = '<li class="file-item" style="justify-content:center"><div class="muted">Playlist empty</div></li>';
+        return;
+    }
+
+    items.forEach((it, idx) => {
+        const name = (typeof it === 'string') ? it : (it.name || '');
+        const repeats = (typeof it === 'string') ? 1 : (it.repeats || 1);
+
+        const li = document.createElement('li');
+        li.className = 'file-item';
+        li.draggable = true;
+        li.dataset.index = idx;
+        li.innerHTML = `
+            <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+                <div style="width:18px;cursor:grab">☰</div>
+                <div class="file-info">
+                    <div class="file-name">${name}</div>
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+                <label style="font-size:0.9rem;color:var(--muted)">Repeat
+                    <input type="number" min="1" value="${repeats}" class="playlist-repeat" data-name="${encodeURIComponent(name)}" style="width:64px;margin-left:8px;padding:6px;border-radius:8px;border:1px solid rgba(15,23,42,0.06);text-align:center">
+                </label>
+            </div>
+        `;
+
+        // drag events
+        li.addEventListener('dragstart', (e)=>{ e.dataTransfer.setData('text/plain', String(idx)); li.style.opacity = '0.4'; });
+        li.addEventListener('dragend', (e)=>{ li.style.opacity = ''; });
+        li.addEventListener('dragover', (e)=>{ e.preventDefault(); });
+        li.addEventListener('drop', (e)=>{
+            e.preventDefault();
+            const from = Number(e.dataTransfer.getData('text/plain'));
+            const to = Array.from(ul.children).indexOf(li);
+            if(isNaN(from) || to < 0) return;
+            const node = items.splice(from,1)[0];
+            items.splice(to,0,node);
+            renderPlaylistPanel(items);
+        });
+
+        ul.appendChild(li);
+    });
+
+    // wire save button
+    const saveBtn = document.getElementById('savePlaylistOrder');
+    if(saveBtn){
+        saveBtn.onclick = async function(){
+            // collect ordered items and repeats
+            const list = Array.from(document.querySelectorAll('#playlistList .file-item'));
+            const out = [];
+            for(const li of list){
+                const nameEl = li.querySelector('.file-name');
+                const input = li.querySelector('.playlist-repeat');
+                const nm = nameEl ? nameEl.textContent.trim() : null;
+                const r = input ? Math.max(1, parseInt(input.value)||1) : 1;
+                if(nm) out.push({name: nm, repeats: r});
+            }
+
+            try{
+                const res = await fetch('/api/playlist_order', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(out)});
+                const j = await res.json();
+                if(!j.ok) throw new Error(j.error || 'Failed to save');
+                alert('Playlist order saved');
+                // refresh full page to update checkboxes and state
+                setTimeout(()=> { location.reload(); }, 300);
+            }catch(err){
+                console.error('Save playlist failed', err);
+                alert('Failed to save playlist order');
+            }
+        };
+    }
+}
+
+// initial load
+document.addEventListener('DOMContentLoaded', ()=>{ fetchPlaylistOrder().catch(()=>{}); });
+
+// System stats: define functions first, then attach listeners
+function getBarClass(percent){
+    if(percent >= 90) return 'critical';
+    if(percent >= 75) return 'warning';
+    return '';
+}
+
+function renderSystemStats(stats){
+    const card = document.getElementById('systemStatsCard');
+    if(!card) return;
+
+    let html = '';
+
+    // CPU
+    if(stats.cpu_percent !== null && stats.cpu_percent !== undefined){
+        const cpu = Math.round(stats.cpu_percent);
+        html += `<div class="stat-section">
+            <div class="stat-section-title">CPU</div>
+            <div class="stat-row">
+                <span class="stat-label">Use</span>
+                <span class="stat-value">${cpu}%</span>
+            </div>
+            <div class="stat-bar">
+                <div class="stat-bar-fill ${getBarClass(cpu)}" style="width:${Math.min(100,cpu)}%"></div>
+            </div>
+        </div>`;
+    }
+
+    // RAM
+    if(stats.ram_percent !== null && stats.ram_percent !== undefined){
+        const ram = Math.round(stats.ram_percent);
+        html += `<div class="stat-section">
+            <div class="stat-section-title">RAM</div>
+            <div class="stat-row">
+                <span class="stat-label">Use</span>
+                <span class="stat-value">${ram}%</span>
+            </div>
+            <div class="stat-bar">
+                <div class="stat-bar-fill ${getBarClass(ram)}" style="width:${Math.min(100,ram)}%"></div>
+            </div>
+            <div class="stat-subtext">${stats.ram_used_gb}/${stats.ram_total_gb}GB</div>
+        </div>`;
+    }
+
+    // Disk
+    if(stats.disk_percent !== null && stats.disk_percent !== undefined){
+        const disk = Math.round(stats.disk_percent);
+        html += `<div class="stat-section">
+            <div class="stat-section-title">Disk</div>
+            <div class="stat-row">
+                <span class="stat-label">Use</span>
+                <span class="stat-value">${disk}%</span>
+            </div>
+            <div class="stat-bar">
+                <div class="stat-bar-fill ${getBarClass(disk)}" style="width:${Math.min(100,disk)}%"></div>
+            </div>
+        </div>`;
+    }
+
+    // Temp
+    if(stats.temp_c !== null && stats.temp_c !== undefined && stats.temp_c > 0){
+        const tempColor = stats.temp_c > 80 ? '#dc2626' : (stats.temp_c > 70 ? '#f59e0b' : 'var(--text)');
+        html += `<div class="stat-section">
+            <div class="stat-section-title">Temp</div>
+            <div class="stat-row">
+                <span class="stat-label">Core</span>
+                <span class="stat-value" style="color:${tempColor}">${stats.temp_c}°C</span>
+            </div>
+        </div>`;
+    }
+
+    html += `<div class="stat-hostname">${stats.hostname || 'System'}</div>`;
+    card.innerHTML = html;
+}
+
+// Toggle stats card visibility
+function toggleStatsCard() {
+    const card = document.getElementById('systemStatsCard');
+    const btn = document.getElementById('statsToggleBtn');
+    const isVisible = card.classList.toggle('visible');
+    
+    if(isVisible) {
+        // Card is now visible - position it just above the button
+        btn.textContent = '✕';
+        const cardHeight = card.offsetHeight || 200;
+        const buttonSize = 46;
+        const gap = 12;
+        // Position card so its bottom is just above the button with small gap
+        card.style.bottom = (buttonSize + gap + gap) + 'px';
+    } else {
+        // Card is hidden
+        btn.textContent = '📊';
+        card.style.bottom = '18px';
+    }
+}
+
+// System stats card: fetch and refresh periodically
+async function fetchSystemStats(){
+    try{
+        console.log('Fetching system stats...');
+        const res = await fetch('/api/system_stats');
+        console.log('Response status:', res.status);
+        if(!res.ok){
+            if(res.status === 503){
+                // psutil not installed
+                console.warn('psutil not installed (503)');
+                document.getElementById('systemStatsCard').style.display = 'none';
+                return;
+            }
+            throw new Error('Failed to fetch: ' + res.status);
+        }
+        const j = await res.json();
+        console.log('Stats response:', j);
+        if(!j.ok) {
+            if(j.error && j.error.includes('psutil')){
+                console.warn('psutil not installed:', j.error);
+                document.getElementById('systemStatsCard').style.display = 'none';
+                return;
+            }
+            throw new Error(j.error || 'Bad response');
+        }
+        console.log('Rendering stats:', j.stats);
+        renderSystemStats(j.stats || {});
+    }catch(err){
+        console.warn('System stats unavailable:', err);
+        // Hide card if stats unavailable
+        try{ document.getElementById('systemStatsCard').style.display = 'none'; }catch(e){}
+    }
+}
+
+// Fetch stats on page load and every 5 seconds
+document.addEventListener('DOMContentLoaded', ()=>{
+    // Set up stats toggle button
+    const toggleBtn = document.getElementById('statsToggleBtn');
+    if(toggleBtn) {
+        toggleBtn.addEventListener('click', toggleStatsCard);
+    }
+    
+    fetchSystemStats();
+    setInterval(fetchSystemStats, 5000);
+});
+
+</script>
+</body>
+</html>

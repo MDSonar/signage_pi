@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>Litmus Signage Player</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        
+        body.playing {
+            cursor: none;
+        }
+        
+        #fullscreen-prompt {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 1.5em;
+            z-index: 1000;
+            cursor: pointer !important;
+        }
+        
+        #fullscreen-prompt button {
+            margin-top: 20px;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer !important;
+            transition: background 0.3s;
+        }
+        
+        #fullscreen-prompt button:hover {
+            background: #5568d3;
+        }
+        
+        #player-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        video, img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        #loading {
+            color: white;
+            font-size: 2em;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="fullscreen-prompt">
+        <div>Litmus Signage Player</div>
+        <button id="fullscreen-btn">Start Player</button>
+        <div style="margin-top:15px; font-size:0.6em; opacity:0.6;">v1.3 - Optimized</div>
+    </div>
+    
+    <div id="player-container">
+        <div id="loading" class="hidden">Loading...</div>
+        <video id="video-player" class="hidden" autoplay playsinline muted></video>
+        <img id="image-player" class="hidden">
+    </div>
+
+    <script>
+        console.log('Web Player v1.3 - Optimized');
+        
+        let playlist = [];
+        let currentIndex = 0;
+        let playlistHash = null;
+        let isPlaying = false;
+        let fetchInterval = null;
+        
+        const videoPlayer = document.getElementById('video-player');
+        const imagePlayer = document.getElementById('image-player');
+        const loading = document.getElementById('loading');
+        const fullscreenPrompt = document.getElementById('fullscreen-prompt');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        
+        // FIXED: Simple click handler without debug overhead
+        fullscreenBtn.onclick = function() {
+            console.log('Button clicked');
+            enterFullscreen();
+        };
+        
+        function enterFullscreen() {
+            const elem = document.documentElement;
+            
+            // Try fullscreen
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen().catch(e => console.log('Fullscreen denied'));
+            } else if (elem.webkitRequestFullscreen) {
+                elem.webkitRequestFullscreen();
+            }
+            
+            // Hide prompt and start player
+            fullscreenPrompt.classList.add('hidden');
+            document.body.classList.add('playing');
+            loading.classList.remove('hidden');
+            
+            // FIXED: Start fetching only after button click
+            startPlayer();
+        }
+        
+        function startPlayer() {
+            console.log('Starting player');
+            
+            // Fetch once immediately
+            fetchPlaylist();
+            
+            // FIXED: Clear any existing interval first
+            if (fetchInterval) {
+                clearInterval(fetchInterval);
+            }
+            
+            // Then fetch every 10 seconds
+            fetchInterval = setInterval(fetchPlaylist, 10000);
+        }
+        
+        async function fetchPlaylist() {
+            try {
+                const response = await fetch('/api/playlist');
+                
+                if (!response.ok) {
+                    throw new Error('API error');
+                }
+                
+                const data = await response.json();
+                
+                // Check if playlist changed
+                if (data.hash !== playlistHash) {
+                    console.log('Playlist updated:', data.count, 'items');
+                    playlist = data.playlist || [];
+                    playlistHash = data.hash;
+                    
+                    if (playlist.length > 0) {
+                        loading.classList.add('hidden');
+                        currentIndex = 0;
+                        isPlaying = false; // Reset flag
+                        playNext();
+                    } else {
+                        loading.textContent = 'No content';
+                        loading.classList.remove('hidden');
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Fetch error:', error);
+                loading.textContent = 'Connection error';
+                loading.classList.remove('hidden');
+            }
+        }
+        
+        function playNext() {
+            if (playlist.length === 0 || isPlaying) {
+                return; // FIXED: Prevent duplicate playback
+            }
+            
+            isPlaying = true;
+            loading.classList.add('hidden');
+            
+            const item = playlist[currentIndex];
+            console.log('Playing:', item.name);
+            
+            if (item.type === 'video') {
+                imagePlayer.classList.add('hidden');
+                videoPlayer.classList.remove('hidden');
+                videoPlayer.src = item.url;
+                videoPlayer.muted = false; // Unmute after user interaction
+                videoPlayer.play().catch(err => {
+                    console.error('Play error:', err);
+                    isPlaying = false;
+                    nextItem();
+                });
+            } else if (item.type === 'image') {
+                videoPlayer.classList.add('hidden');
+                imagePlayer.classList.remove('hidden');
+                imagePlayer.src = item.url;
+                
+                // FIXED: Use setTimeout safely
+                setTimeout(() => {
+                    isPlaying = false;
+                    nextItem();
+                }, (item.duration || 10) * 1000);
+            }
+        }
+        
+        function nextItem() {
+            currentIndex = (currentIndex + 1) % playlist.length;
+            isPlaying = false;
+            playNext();
+        }
+        
+        // Video ended - play next
+        videoPlayer.onended = function() {
+            isPlaying = false;
+            nextItem();
+        };
+        
+        // Video error - skip to next
+        videoPlayer.onerror = function() {
+            console.error('Video error');
+            isPlaying = false;
+            nextItem();
+        };
+        
+        // Image error - skip to next
+        imagePlayer.onerror = function() {
+            console.error('Image error');
+            isPlaying = false;
+            nextItem();
+        };
+        
+        // Prevent context menu
+        document.oncontextmenu = () => false;
+        
+        console.log('Ready - Click button to start');
+        
+            // Poll command endpoint for remote control from dashboard
+            // Use localStorage to deduplicate commands so every connected web player
+            // executes each command exactly once. The server keeps the last command
+            // file; clients compare timestamps (ts) to determine new commands.
+            const CMD_TS_KEY = 'signage:web:lastCommandTs';
+
+            async function pollCommands() {
+                try {
+                    const res = await fetch('/api/command');
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    if (!data || !data.command) return;
+
+                    const cmd = data.command;
+                    const ts = Number(cmd.ts) || 0;
+                    const lastTs = Number(localStorage.getItem(CMD_TS_KEY)) || 0;
+
+                    // Only act on commands newer than the last seen timestamp
+                    if (ts > lastTs && cmd.action) {
+                        const action = cmd.action;
+                        console.log('Received remote action:', action, 'ts=', ts, 'lastTs=', lastTs);
+                        try {
+                            if (action === 'pause') {
+                                videoPlayer.pause();
+                            } else if (action === 'play') {
+                                videoPlayer.play();
+                            } else if (action === 'next') {
+                                currentIndex = (currentIndex + 1) % playlist.length;
+                                isPlaying = false;
+                                playNext();
+                            } else if (action === 'prev') {
+                                currentIndex = (currentIndex - 1 + playlist.length) % playlist.length;
+                                isPlaying = false;
+                                playNext();
+                            }
+                        } catch (err) {
+                            console.error('Error applying remote action', err);
+                        }
+
+                        // Mark command as seen so other polls don't re-run it on this client
+                        try {
+                            localStorage.setItem(CMD_TS_KEY, String(ts));
+                        } catch (err) {
+                            // ignore storage errors
+                        }
+                    }
+                } catch (e) {
+                    // ignore
+                }
+            }
+
+            // Poll every 2s
+            setInterval(pollCommands, 2000);
+    </script>
+</body>
+</html>

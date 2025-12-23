@@ -1,0 +1,35 @@
+# Systemd Service for Web Player (Gunicorn)
+# Location: /etc/systemd/system/signage-web-player.service
+# Enable: sudo systemctl enable signage-web-player
+# Start: sudo systemctl start signage-web-player
+# Logs: sudo journalctl -u signage-web-player -f
+
+[Unit]
+Description=Litmus Signage Web Player
+After=network.target
+Wants=signage-dashboard.service
+
+[Service]
+Type=notify
+User=pi
+Group=pi
+WorkingDirectory=/opt/signage-pi
+Environment="PATH=/opt/signage-pi/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="HOME=/home/pi"
+ExecStart=/opt/signage-pi/venv/bin/gunicorn \
+    --workers 4 \
+    --bind 0.0.0.0:8080 \
+    --timeout 120 \
+    --log-level info \
+    --access-logfile /home/pi/.signage/logs/web_player_access.log \
+    --error-logfile /home/pi/.signage/logs/web_player_error.log \
+    --pid /home/pi/.signage/web_player_gunicorn.pid \
+    web_player:app
+
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

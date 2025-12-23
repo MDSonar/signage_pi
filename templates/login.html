@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Litmus Signage</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Logo positioning: top-left, fixed, responsive */
+        .logo-watermark {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            opacity: 0.85;
+        }
+        
+        .logo-watermark img {
+            max-width: 120px;
+            height: auto;
+            display: block;
+        }
+        
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+            position: relative;
+            z-index: 20;
+        }
+        h1 { text-align: center; color: #333; margin-bottom: 30px; font-size: 2em; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; color: #555; font-weight: 500; }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+        input:focus { outline: none; border-color: #667eea; }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .flash { padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+        .flash.error { background: #fee; color: #c00; border: 1px solid #fcc; }
+        .flash.success { background: #efe; color: #0a0; border: 1px solid #cfc; }
+        
+        /* Mobile responsive: adjust logo size and position */
+        @media (max-width: 600px) {
+            .logo-watermark {
+                top: 12px;
+                left: 12px;
+            }
+            .logo-watermark img {
+                max-width: 80px;
+            }
+            .login-container {
+                padding: 30px 20px;
+                margin: 0 12px;
+            }
+            h1 { font-size: 1.6em; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Logo watermark -->
+    <div class="logo-watermark">
+        <img src="/static/logo/logo.png" alt="Company Logo">
+    </div>
+    
+    <div class="login-container">
+        <h1>🖥️ Litmus Signage</h1>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        <form method="POST">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required autofocus>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+</body>
+</html>
