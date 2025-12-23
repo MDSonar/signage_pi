@@ -92,6 +92,7 @@ Two systemd services in `/etc/systemd/system/`:
 - Creates `~/.signage/` in actual user's home for data (persists across updates)
 - Sets up `/opt/signage-pi/venv` virtual environment
 - Configures vsftpd FTP server for uploads
+- Opens firewall ports 5000 (dashboard) and 8080 (web player) via UFW if available
 - Installs systemd services with correct username/paths via `sed` replacements
 - Generates random FTP password
 

@@ -169,6 +169,34 @@ sudo bash scripts/uninstall-signage-pi.sh
 
 ---
 
+## Network & Firewall
+
+### Services Not Accessible Over Wi‑Fi
+
+**Issue**: Services run locally but can't reach them from another device on the same network.
+
+**Fix: Open firewall ports**
+```bash
+# Check firewall status
+sudo ufw status
+
+# If active (Status: active), allow ports:
+sudo ufw allow 5000/tcp  # Dashboard
+sudo ufw allow 8080/tcp  # Web Player
+sudo ufw reload
+
+# Verify listening
+sudo ss -ltnp | grep -E ':5000|:8080'
+# Should show 0.0.0.0 (all interfaces)
+```
+
+**Other checks**:
+- Ensure both Pi and client are on the **same Wi‑Fi SSID** (not Guest/isolated)
+- Disable router "AP/Client Isolation" if available
+- Test from another device: `curl http://<pi-ip>:5000`
+
+---
+
 ## Troubleshooting
 
 ### Services Won't Start
@@ -177,8 +205,6 @@ sudo bash scripts/uninstall-signage-pi.sh
 grep "User=" /etc/systemd/system/signage-*.service
 
 # Should match your username (not 'pi' or 'root')
-# Fix if wrong:
-sudo bash scripts/fix-user-permissions.sh
 ```
 
 ### Data in Wrong Location
