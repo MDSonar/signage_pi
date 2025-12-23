@@ -16,6 +16,13 @@ import os
 from functools import lru_cache
 from threading import Lock
 
+try:
+    import psutil
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
+    psutil = None
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -269,6 +276,36 @@ def get_active_clients():
             _client_last_seen.pop(ip, None)
         return len(_client_last_seen)
 
+
+def get_system_stats():
+    """Return lightweight system stats if psutil is available."""
+    if not HAS_PSUTIL:
+        return None
+    stats = {}
+    try:
+        stats['cpu_percent'] = psutil.cpu_percent(interval=0.1)
+    except Exception:
+        stats['cpu_percent'] = None
+    try:
+        vm = psutil.virtual_memory()
+        stats['ram_percent'] = vm.percent
+        stats['ram_used_gb'] = round(vm.used / (1024 ** 3), 2)
+        stats['ram_total_gb'] = round(vm.total / (1024 ** 3), 2)
+    except Exception:
+        stats['ram_percent'] = None
+    # Temperature (best-effort)
+    stats['temp_c'] = None
+    try:
+        temps = psutil.sensors_temperatures()
+        if temps:
+            for name, entries in temps.items():
+                if entries:
+                    stats['temp_c'] = round(entries[0].current, 1)
+                    break
+    except Exception:
+        stats['temp_c'] = None
+    return stats
+
 @app.route('/')
 def player():
     track_client()
@@ -302,6 +339,56 @@ def api_status():
     except Exception:
         logger.exception('Failed to get status')
         return jsonify({'ok': False, 'error': 'server error'}), 500
+
+
+@app.route('/health')
+def health():
+    """Lightweight health/status page (JSON or HTML)."""
+    try:
+        playlist, playlist_hash = get_playlist()
+        playlist_items = len(playlist)
+    except Exception:
+        playlist = []
+        playlist_hash = None
+        playlist_items = 0
+
+    try:
+        pl_mtime = PLAYLIST_JSON.stat().st_mtime if PLAYLIST_JSON.exists() else None
+    except Exception:
+        pl_mtime = None
+
+    payload = {
+        'ok': True,
+        'active_clients': get_active_clients(),
+        'playlist_items': playlist_items,
+        'playlist_hash': playlist_hash,
+        'playlist_mtime': pl_mtime,
+        'timestamp': time.time(),
+        'system_stats': get_system_stats(),
+    }
+
+    wants_html = 'text/html' in (request.headers.get('Accept') or '') or request.args.get('html') == '1'
+    if wants_html:
+        # Simple HTML view
+        stats = payload.get('system_stats') or {}
+        html = f"""
+        <html><body style='font-family: monospace; padding: 12px;'>
+        <h3>Signage Health</h3>
+        <div>Active clients: {payload['active_clients']}</div>
+        <div>Playlist items: {payload['playlist_items']}</div>
+        <div>Playlist hash: {payload['playlist_hash']}</div>
+        <div>Playlist mtime: {payload['playlist_mtime']}</div>
+        <div>CPU%: {stats.get('cpu_percent')}</div>
+        <div>RAM%: {stats.get('ram_percent')}</div>
+        <div>Temp C: {stats.get('temp_c')}</div>
+        <div>Timestamp: {payload['timestamp']}</div>
+        </body></html>
+        """
+        response = make_response(html)
+        response.headers['Content-Type'] = 'text/html'
+        return response
+
+    return jsonify(payload)
 
 
 @app.route('/api/playlist-sync')

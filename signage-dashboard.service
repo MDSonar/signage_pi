@@ -18,8 +18,13 @@ Environment="PATH=/opt/signage-pi/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="HOME=/home/pi"
 ExecStart=/opt/signage-pi/venv/bin/gunicorn \
     --workers 2 \
+    --threads 4 \
+    --worker-class gthread \
     --bind 0.0.0.0:5000 \
     --timeout 300 \
+    --keep-alive 75 \
+    --backlog 512 \
+    --worker-tmp-dir /dev/shm \
     --log-level info \
     --access-logfile /home/pi/.signage/logs/dashboard_access.log \
     --error-logfile /home/pi/.signage/logs/dashboard_error.log \
