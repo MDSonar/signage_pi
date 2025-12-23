@@ -26,8 +26,9 @@ _playlist_cache = {'data': None, 'hash': None, 'timestamp': 0, 'playlist_mtime':
 _playlist_cache_lock = Lock()
 PLAYLIST_CACHE_TTL = 5  # seconds
 
-# Client tracking
-_client_ips = set()  # Track unique client IPs
+# Client tracking (active within the last TTL seconds)
+CLIENT_TTL_SECONDS = 60
+_client_last_seen = {}
 _client_lock = Lock()
 
 CONFIG_FILE = Path.home() / 'signage' / 'config.json'
@@ -239,18 +240,34 @@ def get_current_item_index(playlist, elapsed_time):
 
 def get_client_ip():
     """Get client IP, handling proxy headers."""
-    return request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
+    return (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
 
 def track_client():
-    """Track active client by IP."""
+    """Track active client by IP with last-seen timestamp."""
     client_ip = get_client_ip()
+    if not client_ip:
+        return
+    now = time.time()
+    ttl = CLIENT_TTL_SECONDS
     with _client_lock:
-        _client_ips.add(client_ip)
+        _client_last_seen[client_ip] = now
+        # prune stale entries occasionally
+        if len(_client_last_seen) > 200:
+            cutoff = now - ttl
+            for ip, ts in list(_client_last_seen.items()):
+                if ts < cutoff:
+                    _client_last_seen.pop(ip, None)
 
 def get_active_clients():
-    """Return count of unique client IPs seen."""
+    """Return count of clients seen within TTL window."""
+    now = time.time()
+    cutoff = now - CLIENT_TTL_SECONDS
     with _client_lock:
-        return len(_client_ips)
+        # prune and count
+        stale = [ip for ip, ts in _client_last_seen.items() if ts < cutoff]
+        for ip in stale:
+            _client_last_seen.pop(ip, None)
+        return len(_client_last_seen)
 
 @app.route('/')
 def player():

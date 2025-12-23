@@ -46,7 +46,9 @@ pip install gunicorn
 ./start_web_player_gunicorn.sh
 
 # Or manually:
-gunicorn -w 4 -b 0.0.0.0:8080 web_player:app
+gunicorn -w 4 -b 0.0.0.0:8080 \
+	--timeout 120 --keep-alive 75 --backlog 2048 --worker-tmp-dir /dev/shm \
+	web_player:app
 
 # Start dashboard with gunicorn
 ./start_dashboard_gunicorn.sh
@@ -89,11 +91,12 @@ sudo journalctl -u signage-web-player -f
 
 ## Caching Details
 
-### Playlist Caching (web_player.py)
+### Playlist Caching + Client Tracking (web_player.py)
 - **Cache TTL:** 5 seconds (configurable via `PLAYLIST_CACHE_TTL`)
 - **Thread-safe:** Uses Lock to prevent race conditions
 - **Auto-invalidation:** Refreshes when TTL expires
 - **Impact:** 80% reduction in CPU for `/api/playlist` requests
+- **Client count:** Tracks active client IPs within 60s TTL (`/api/status`)
 
 ### HTTP Response Caching
 - **Videos:** `Cache-Control: public, max-age=3600` (1 hour)

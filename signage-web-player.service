@@ -20,6 +20,9 @@ ExecStart=/opt/signage-pi/venv/bin/gunicorn \
     --workers 4 \
     --bind 0.0.0.0:8080 \
     --timeout 120 \
+    --keep-alive 75 \
+    --backlog 2048 \
+    --worker-tmp-dir /dev/shm \
     --log-level info \
     --access-logfile /home/pi/.signage/logs/web_player_access.log \
     --error-logfile /home/pi/.signage/logs/web_player_error.log \
