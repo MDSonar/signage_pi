@@ -1,15 +1,24 @@
 #!/bin/bash
 ###############################################################################
 # Signage Pi - One-Step Installer for Raspberry Pi 4B
-# Usage: sudo bash install-signage-pi.sh [repo-path]
-# Example: sudo bash install-signage-pi.sh /home/pi/signage_pi
+# 
+# USAGE (from git repository directory):
+#   cd ~/signage_pi
+#   sudo bash scripts/install-signage-pi.sh
+# 
+# WORKFLOW:
+#   1. Clone/pull repo on Pi: git clone <repo-url> && cd signage_pi
+#   2. Run this installer from repo directory
+#   3. For updates: git pull && sudo bash scripts/update-signage-pi.sh
 # 
 # This script:
+# - Detects actual user (not root) via $SUDO_USER
 # - Installs system dependencies (Python, ffmpeg, FTP server)
-# - Creates Python virtual environment
+# - Creates Python virtual environment at /opt/signage-pi
 # - Installs Python packages
-# - Sets up directory structure (~/.signage/)
-# - Installs and enables systemd services
+# - Copies code from current directory to /opt/signage-pi
+# - Sets up data directory at ~/.signage/ (preserves across updates)
+# - Installs and enables systemd services with correct user
 # - Configures and starts FTP server for file transfers
 ###############################################################################
 
@@ -26,7 +35,17 @@ NC='\033[0m' # No Color
 REPO_PATH="${1:-.}"
 VENV_PATH="/opt/signage-pi/venv"
 APP_HOME="/opt/signage-pi"
-SIGNAGE_HOME="${HOME}/.signage"
+
+# Detect actual user (not root when using sudo)
+if [ -n "$SUDO_USER" ]; then
+    ACTUAL_USER="$SUDO_USER"
+    ACTUAL_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+else
+    ACTUAL_USER="$USER"
+    ACTUAL_HOME="$HOME"
+fi
+
+SIGNAGE_HOME="${ACTUAL_HOME}/.signage"
 LOG_FILE="/var/log/signage-install.log"
 FTP_USER="signage"
 FTP_PASS="$(date +%s | sha256sum | base64 | head -c 12)"
@@ -57,6 +76,7 @@ fi
 log_info "=========================================="
 log_info "Starting Signage Pi Installation"
 log_info "=========================================="
+log_info "Detected user: $ACTUAL_USER"
 log_info "Repo path: $REPO_PATH"
 log_info "App home: $APP_HOME"
 log_info "Signage home: $SIGNAGE_HOME"
@@ -84,6 +104,7 @@ log_success "System dependencies installed"
 log_info "Step 3: Creating app directories..."
 mkdir -p "$APP_HOME"
 mkdir -p "$SIGNAGE_HOME"/{content/videos,content/presentations,cache/slides,logs,commands}
+chown -R "$ACTUAL_USER:$ACTUAL_USER" "$SIGNAGE_HOME"
 chmod 755 "$SIGNAGE_HOME"
 log_success "Directories created"
 
@@ -93,11 +114,14 @@ python3 -m venv "$VENV_PATH" >> "$LOG_FILE" 2>&1
 log_success "Virtual environment created at $VENV_PATH"
 
 # 5. Copy app code to /opt/signage-pi
-log_info "Step 5: Copying application code..."
+log_info "Step 5: Copying application code from repo..."
 if [ -d "$REPO_PATH" ]; then
-    cp -r "$REPO_PATH"/*.py "$APP_HOME/" 2>/dev/null || true
-    cp -r "$REPO_PATH"/templates "$APP_HOME/" 2>/dev/null || true
-    cp -r "$REPO_PATH"/requirements.txt "$APP_HOME/" 2>/dev/null || true
+    cp -f "$REPO_PATH"/*.py "$APP_HOME/" 2>/dev/null || true
+    cp -rf "$REPO_PATH"/templates "$APP_HOME/" 2>/dev/null || true
+    cp -f "$REPO_PATH"/requirements.txt "$APP_HOME/" 2>/dev/null || true
+    cp -f "$REPO_PATH"/start_*.sh "$APP_HOME/" 2>/dev/null || true
+    chmod +x "$APP_HOME"/start_*.sh 2>/dev/null || true
+    chown -R root:root "$APP_HOME"
     log_success "App code copied to $APP_HOME"
 else
     log_error "Repo path not found: $REPO_PATH"
@@ -117,14 +141,20 @@ log_info "Step 7: Installing systemd services..."
 cp "$REPO_PATH/signage-dashboard.service" /etc/systemd/system/signage-dashboard.service
 cp "$REPO_PATH/signage-web-player.service" /etc/systemd/system/signage-web-player.service
 
-# Update service files with correct paths
+# Update service files with correct user and paths
+sed -i "s|User=pi|User=$ACTUAL_USER|g" /etc/systemd/system/signage-dashboard.service
+sed -i "s|Group=pi|Group=$ACTUAL_USER|g" /etc/systemd/system/signage-dashboard.service
 sed -i "s|/home/pi/.local/bin|$VENV_PATH/bin|g" /etc/systemd/system/signage-dashboard.service
 sed -i "s|/home/pi/signage_pi|$APP_HOME|g" /etc/systemd/system/signage-dashboard.service
 sed -i "s|/home/pi/.signage|$SIGNAGE_HOME|g" /etc/systemd/system/signage-dashboard.service
+sed -i "s|HOME=/home/pi|HOME=$ACTUAL_HOME|g" /etc/systemd/system/signage-dashboard.service
 
+sed -i "s|User=pi|User=$ACTUAL_USER|g" /etc/systemd/system/signage-web-player.service
+sed -i "s|Group=pi|Group=$ACTUAL_USER|g" /etc/systemd/system/signage-web-player.service
 sed -i "s|/home/pi/.local/bin|$VENV_PATH/bin|g" /etc/systemd/system/signage-web-player.service
 sed -i "s|/home/pi/signage_pi|$APP_HOME|g" /etc/systemd/system/signage-web-player.service
 sed -i "s|/home/pi/.signage|$SIGNAGE_HOME|g" /etc/systemd/system/signage-web-player.service
+sed -i "s|HOME=/home/pi|HOME=$ACTUAL_HOME|g" /etc/systemd/system/signage-web-player.service
 
 systemctl daemon-reload
 systemctl enable signage-dashboard.service
@@ -225,8 +255,12 @@ echo "  Dashboard:  sudo journalctl -u signage-dashboard -f"
 echo "  Web Player: sudo journalctl -u signage-web-player -f"
 echo ""
 echo "Restart services:"
-echo "  sudo systemctl restart signage-dashboard"
-echo "  sudo systemctl restart signage-web-player"
+echo " pdate installation (after git pull):"
+echo "  cd ~/signage_pi && git pull"
+echo "  sudo bash scripts/update-signage-pi.sh"
+echo ""
+echo "Uninstall:"
+echo "  sudo bash scriptsgnage-web-player"
 echo ""
 echo "Uninstall:"
 echo "  sudo bash $(dirname "$0")/uninstall-signage-pi.sh"
