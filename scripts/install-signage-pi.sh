@@ -164,9 +164,10 @@ log_success "Systemd services installed and enabled"
 # Allow firewall access
 log_info "Step 7b: Configuring firewall (UFW)..."
 if command -v ufw &> /dev/null; then
+    ufw allow 80/tcp 2>/dev/null || true
     ufw allow 5000/tcp 2>/dev/null || true
     ufw allow 8080/tcp 2>/dev/null || true
-    log_success "Firewall ports 5000, 8080 enabled"
+    log_success "Firewall ports 80, 5000, 8080 enabled"
 else
     log_warn "UFW not installed (firewall may need manual configuration)"
 fi
